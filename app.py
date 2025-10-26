@@ -22,19 +22,31 @@ async def handle_messages(req: web.Request):
     activity = Activity().deserialize(body)
 
     async def logic(turn_context: TurnContext):
-        user_input = (turn_context.activity.text or "").lower().strip()
+        # Nếu là tin nhắn người dùng
+        if turn_context.activity.type == "message":
+            user_input = (turn_context.activity.text or "").lower().strip()
 
-        # Match input with keys in data.json
-        response = None
-        for key, value in knowledge_base.items():
-            if key in user_input:
-                response = value
-                break
+            # Tìm câu trả lời trong data.json
+            response = None
+            for key, value in knowledge_base.items():
+                if key in user_input:
+                    response = value
+                    break
 
-        if not response:
-            response = "Sorry, I don’t have information about that yet."
+            if not response:
+                response = "Sorry, I don’t have information about that yet."
 
-        await turn_context.send_activity(response)
+            await turn_context.send_activity(response)
+
+        # Nếu là sự kiện người dùng mới tham gia cuộc trò chuyện
+        elif turn_context.activity.type == "conversationUpdate":
+            members_added = turn_context.activity.members_added
+            if members_added:
+                for member in members_added:
+                    if member.id != turn_context.activity.recipient.id:
+                        await turn_context.send_activity(
+                            "Hello! I'm your bot. Ask me something."
+                        )
 
     await ADAPTER.process_activity(activity, "", logic)
     return web.Response(status=200)
